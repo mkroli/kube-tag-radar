@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-tag-radar
+  labels:
+    app: kube-tag-radar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-tag-radar
+  template:
+    metadata:
+      labels:
+        app: kube-tag-radar
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: kube-tag-radar
+      containers:
+      - name: kube-tag-radar
+        image: ghcr.io/mkroli/kube-tag-radar:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: /config.yaml
+          subPath: config.yaml
+        args: ["/config.yaml"]
+      volumes:
+      - name: config
+        configMap:
+          name: kube-tag-radar-config

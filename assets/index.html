@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kube-tag-radar</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/client-side-templates.js"></script>
+    <script src="https://unpkg.com/mustache@latest"></script>
+    <script>
+        function beforeSwapList(event) {
+            l = JSON.parse(event.detail.serverResponse);
+            l = l.map(function(e) {
+                e.cls = e["image_id"] === e["latest_image_id"] || e["version"] === e["latest_version"] ? "" : "is-warning";
+                return e;
+            });
+            event.detail.serverResponse = JSON.stringify(l);
+        }
+    </script>
+  </head>
+  <body>
+  <section class="section">
+    <div class="container is-fluid">
+        <h1 class="title">
+            kube-tag-radar
+        </h1>
+        <div class="table-container">
+            <table class="table is-striped is-hoverable is-fullwidth">
+                <thead>
+                <tr>
+                    <th>Namespace</th>
+                    <th>POD</th>
+                    <th>Container</th>
+                    <th>Image</th>
+                    <th>Image ID</th>
+                    <th>Latest Tag</th>
+                    <th>Latest Image ID</th>
+                    <th>Version</th>
+                    <th>Latest Version Requirement</th>
+                    <th>Latest Version</th>
+                </tr>
+                </thead>
+                <tbody hx-get="/api/list" hx-trigger="load, every 5s" hx-on::before-swap="beforeSwapList(event)" hx-ext="client-side-templates" hx-swap="innerHTML" mustache-array-template="image-template">
+                </tbody>
+                <template id="image-template">
+                    {{ #data }}
+                    <tr class="{{ cls }}">
+                        <td>{{ namespace }}</td>
+                        <td>{{ pod }}</td>
+                        <td>{{ container }}</td>
+                        <td>{{ image }}</td>
+                        <td>{{ image_id }}</td>
+                        <td>{{ latest_tag }}</td>
+                        <td>{{ latest_image_id }}</td>
+                        <td>{{ version }}</td>
+                        <td>{{ latest_version_req }}</td>
+                        <td>{{ latest_version }}</td>
+                    </tr>
+                    {{ /data }}
+                </template>
+            </table>
+        </div>
+    </div>
+  </section>
+  </body>
+</html>

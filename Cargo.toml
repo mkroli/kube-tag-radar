@@ -1,0 +1,57 @@
+[package]
+name = "kube-tag-radar"
+version = "0.1.0-rc.1"
+edition = "2024"
+description = "Monitors Kubernetes PODs for available container image updates"
+license = "Apache-2.0"
+repository = "https://github.com/mkroli/kube-tag-radar"
+readme = "README.md"
+authors = ["Michael Krolikowski"]
+
+[profile.release]
+strip = "symbols"
+opt-level = "s"
+lto = true
+panic = "abort"
+codegen-units = 1
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio-stream = "0.1"
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+config = { version = "0.15", default-features = false, features = ["yaml"] }
+iso8601-duration = "0.2"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
+kube = { version = "0.99", features = ["runtime", "derive"] }
+k8s-openapi = { version = "0.24", features = ["latest"] }
+oci-client = { version = "0.14", default-features = false, features = ["rustls-tls"] }
+axum = { version = "0.8", default-features = false, features = ["tokio", "http1", "http2", "json"] }
+axum-extra = { version = "0.10", default-features = false, features = ["typed-header"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1"
+semver = "1"
+prometheus = { version = "0.14", default-features = false, features = ["process"] }
+lazy_static = "1"
+log = "0.4"
+stderrlog = "0.6"
+
+[package.metadata.release]
+tag-name = "{{prefix}}{{version}}"
+
+[[package.metadata.release.pre-release-replacements]]
+file = "kubernetes/deployment.yaml"
+search = "(image: ghcr.io/mkroli/kube-tag-radar):.*"
+replace = "$1:{{tag_name}}"
+
+[[package.metadata.release.pre-release-replacements]]
+file = "README.md"
+search = "(kubectl apply -k https://github.com/mkroli/kube-tag-radar.git/kubernetes\\?ref)=.*"
+replace = "$1={{tag_name}}"
+
+[[package.metadata.release.pre-release-replacements]]
+file = "README.md"
+search = "(targetRevision:) .*"
+replace = "$1 {{tag_name}}"
