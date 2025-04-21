@@ -21,7 +21,7 @@ spec:
       serviceAccountName: kube-tag-radar
       containers:
       - name: kube-tag-radar
-        image: ghcr.io/mkroli/kube-tag-radar:latest
+        image: ghcr.io/mkroli/kube-tag-radar:0.1.0
         ports:
         - containerPort: 8080
         volumeMounts:
