@@ -104,6 +104,9 @@ impl Database {
     pub async fn replace(&self, image: &Image) -> Result<()> {
         let mut tx = self.pool.begin().await?;
         sqlx::query("DELETE FROM image WHERE namespace = $1 AND pod = $2 AND container = $3")
+            .bind(&image.namespace)
+            .bind(&image.pod)
+            .bind(&image.container)
             .execute(&mut *tx)
             .await?;
         sqlx::query("INSERT INTO image (namespace, pod, container, image, image_id, latest_tag, latest_image_id, version, latest_version_req, latest_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",)

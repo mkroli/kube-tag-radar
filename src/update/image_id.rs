@@ -28,7 +28,7 @@ impl UpdateImageId for Image {
         let client_config = ClientConfig::default();
         let client = oci_client::Client::new(client_config);
 
-        let reference = self.image_id.parse::<Reference>()?;
+        let reference = self.image.parse::<Reference>()?;
         let reference_digest = match reference.digest() {
             Some(digest) => digest.to_string(),
             None => {
