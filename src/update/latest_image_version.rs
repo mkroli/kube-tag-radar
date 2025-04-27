@@ -16,7 +16,7 @@
 
 use anyhow::Result;
 use oci_client::{Reference, client::ClientConfig};
-use regex::Regex;
+use regex::{Match, Regex};
 use semver::{Version, VersionReq};
 
 use crate::database::Image;
@@ -25,10 +25,10 @@ pub trait UpdateLatestImageVersion {
     async fn update_latest_image_version(&mut self) -> Result<()>;
 }
 
-async fn image_tags(image: &Image) -> Result<Vec<String>> {
+async fn image_name_tags(image: &str) -> Result<Vec<String>> {
     let client_config = ClientConfig::default();
     let client = oci_client::Client::new(client_config);
-    let reference = image.image.parse::<Reference>()?;
+    let reference = image.parse::<Reference>()?;
 
     let mut tags = Vec::new();
     let mut last: Option<String> = None;
@@ -56,38 +56,10 @@ async fn image_tags(image: &Image) -> Result<Vec<String>> {
     Ok(tags)
 }
 
-struct VersionParser {
-    version_formatter_regex: Regex,
-    version_req: VersionReq,
-}
-
-const VERSION_REGEX: &str = r#"^[vV]?0*(?<major>0|[1-9]\d*)(?:\.0*(?<minor>0|[1-9]\d*))?(?:\.0*(?<patch>0|[1-9]\d*))?(?<suffix>.*)$"#;
-
-impl VersionParser {
-    fn new(version_req: VersionReq) -> Result<Self> {
-        let version_formatter_regex = Regex::new(VERSION_REGEX)?;
-        let vp = VersionParser {
-            version_formatter_regex,
-            version_req,
-        };
-        Ok(vp)
-    }
-
-    fn parse(&self, version: &str) -> Option<Version> {
-        match self.version_formatter_regex.captures(version) {
-            Some(caps) => {
-                let major = caps.name("major").map_or("0", |c| c.as_str());
-                let minor = caps.name("minor").map_or("0", |c| c.as_str());
-                let patch = caps.name("patch").map_or("0", |c| c.as_str());
-                let suffix = caps.name("suffix").map_or("", |c| c.as_str());
-                let version = &format!("{major}.{minor}.{patch}{suffix}");
-                match Version::parse(version) {
-                    Ok(v) if self.version_req.matches(&v) => Some(v),
-                    _ => None,
-                }
-            }
-            None => None,
-        }
+async fn image_tags(image: &Image) -> Result<Vec<String>> {
+    match image_name_tags(&image.image_id).await? {
+        v if !v.is_empty() => Ok(v),
+        _ => image_name_tags(&image.image).await,
     }
 }
 
@@ -111,6 +83,81 @@ impl UpdateLatestImageVersion for Image {
             };
         }
         self.latest_version = latest_version;
+        Ok(())
+    }
+}
+
+struct VersionParser {
+    version_formatter_regex: Regex,
+    version_req: VersionReq,
+}
+
+const VERSION_REGEX: &str = r#"^[vV]?0*(?<major>0|[1-9]\d*)(?:\.0*(?<minor>0|[1-9]\d*))?(?:\.0*(?<patch>0|[1-9]\d*))?(?<suffix>.*)$"#;
+
+impl VersionParser {
+    fn new(version_req: VersionReq) -> Result<Self> {
+        let version_formatter_regex = Regex::new(VERSION_REGEX)?;
+        let vp = VersionParser {
+            version_formatter_regex,
+            version_req,
+        };
+        Ok(vp)
+    }
+
+    fn best_effort_version(
+        major: Option<&str>,
+        minor: Option<&str>,
+        patch: Option<&str>,
+        suffix: Option<&str>,
+    ) -> String {
+        let (major, minor, patch) = match (major, minor, patch) {
+            (Some(major), Some(minor), Some(patch)) => (major, minor, patch),
+            (Some(major), Some(minor), None) => (major, minor, "0"),
+            (Some(major), None, None) => ("0", "0", major),
+            _ => ("0", "0", "0"),
+        };
+        let suffix = suffix.unwrap_or("");
+        format!("{major}.{minor}.{patch}{suffix}")
+    }
+
+    fn parse(&self, version: &str) -> Option<Version> {
+        fn as_str(c: Match<'_>) -> &str {
+            c.as_str()
+        }
+        match self.version_formatter_regex.captures(version) {
+            Some(caps) => {
+                let major = caps.name("major").map(as_str);
+                let minor = caps.name("minor").map(as_str);
+                let patch = caps.name("patch").map(as_str);
+                let suffix = caps.name("suffix").map(as_str);
+                let version = VersionParser::best_effort_version(major, minor, patch, suffix);
+                match Version::parse(&version) {
+                    Ok(v) if self.version_req.matches(&v) => Some(v),
+                    _ => None,
+                }
+            }
+            None => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_best_effort_version_order() -> Result<()> {
+        let vp = VersionParser::new(VersionReq::parse("*")?)?;
+        let versions = vec![
+            vp.parse("test"),
+            vp.parse("2"),
+            vp.parse("0.1"),
+            vp.parse("0.3"),
+            vp.parse("1.0"),
+            vp.parse("1.0.1"),
+            vp.parse("2.0"),
+        ];
+        assert!(versions.is_sorted());
         Ok(())
     }
 }
