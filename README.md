@@ -55,7 +55,16 @@ spec:
 
 ## Configuration
 
-`kube-tag-radar` looks for this file at `config.yaml` by default. When deployed in Kubernetes, configuration is provided via a `ConfigMap` named `kube-tag-radar-config`.
+`kube-tag-radar` looks for Pod annotations and a configuration file at `config.yaml` by default. When deployed in Kubernetes, the configuration file is provided via a `ConfigMap` named `kube-tag-radar-config`.
+
+### Annotations
+
+`kube-tag-radar` checks annotations on Pods. If you have a deployment make sure to add annotations to `spec.template.metadata.annotations...`.
+
+| Annotation | Default | Description |
+| --- | --- | --- |
+| `kube-tag-radar.mkroli.com/tag` | `latest` | Will compare the current image digest with the digest of the given tag to check if it's up-to-date |
+| `kube-tag-radar.mkroli.com/version_req` | `*` | Used to restrict the latest version of the image (see [Specifying Dependencies](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html)). |
 
 ### Example config file
 
