@@ -1,2 +1,2 @@
-update_delay: "5 minutes"
-update_interval: "3 hours"
+update_delay: "PT5M"
+update_interval: "PT3H"

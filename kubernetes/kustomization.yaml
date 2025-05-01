@@ -4,6 +4,8 @@ resources:
 - service-account.yaml
 - deployment.yaml
 - service.yaml
+generatorOptions:
+  disableNameSuffixHash: true
 configMapGenerator:
 - name: kube-tag-radar-config
   files:
