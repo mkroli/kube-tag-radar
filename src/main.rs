@@ -26,6 +26,7 @@ use anyhow::Result;
 use clap::Parser;
 use database::Database;
 use log::LogError;
+use observe::Observe;
 use serve::Serve;
 use settings::Settings;
 use update::Update;
@@ -48,13 +49,17 @@ async fn main() -> Result<()> {
     let database = Database::new(&settings.database).await?;
 
     let serve_task = {
-        let database = database.clone();
-        let serve = Serve::new(database)?;
+        let serve = Serve::new(database.clone());
         tokio::spawn(async move { serve.serve().await })
     };
 
+    let observe_task = {
+        let observe = Observe::new(settings, database.clone());
+        tokio::spawn(async move { observe.observe().await })
+    };
+
     let update_task = {
-        let update = Update::new(settings, database.clone())?;
+        let update = Update::new(database);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval_at(update_delay, update_interval);
             loop {
@@ -66,13 +71,11 @@ async fn main() -> Result<()> {
         })
     };
 
-    let observe_task = { tokio::spawn(observe::observe(database)) };
-
     info!("Started");
     tokio::select! {
         r = serve_task => r,
-        r = update_task => r,
         r = observe_task => r,
+        r = update_task => r,
     }??;
     Ok(())
 }

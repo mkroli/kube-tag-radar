@@ -54,9 +54,8 @@ where
 }
 
 impl Serve {
-    pub fn new(database: Database) -> Result<Serve> {
-        let serve = Serve { database };
-        Ok(serve)
+    pub fn new(database: Database) -> Serve {
+        Serve { database }
     }
 
     pub async fn serve(self) -> Result<()> {

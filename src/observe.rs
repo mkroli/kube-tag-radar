@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-use crate::database::{Container, Database};
+use crate::{
+    database::{Container, Database},
+    settings::Settings,
+};
 use anyhow::Result;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -28,6 +31,11 @@ use kube::{
 };
 use std::pin::pin;
 use tokio_stream::StreamExt;
+
+pub struct Observe {
+    settings: Settings,
+    database: Database,
+}
 
 fn pod_containers(pod: &Pod) -> Result<Vec<Container>> {
     let mut containers = Vec::new();
@@ -66,25 +74,38 @@ fn pod_containers(pod: &Pod) -> Result<Vec<Container>> {
     Ok(containers)
 }
 
-pub async fn observe(database: Database) -> Result<()> {
-    let client = Client::try_default().await?;
-    let api = Api::<Pod>::all(client);
-    let mut changes = pin!(watcher(api, Config::default()).default_backoff());
-    database.truncate_containers().await?;
-    while let Some(event) = changes.try_next().await? {
-        match event {
-            Event::Delete(pod) => {
-                for container in pod_containers(&pod)? {
-                    database.delete_container(&container).await?;
-                }
-            }
-            Event::InitApply(pod) | Event::Apply(pod) => {
-                for container in pod_containers(&pod)? {
-                    database.replace_container(&container).await?;
-                }
-            }
-            _ => (),
-        }
+impl Observe {
+    pub fn new(settings: Settings, database: Database) -> Observe {
+        Observe { settings, database }
     }
-    Ok(())
+
+    pub async fn observe(&self) -> Result<()> {
+        let client = Client::try_default().await?;
+        let api = Api::<Pod>::all(client);
+        let mut changes = pin!(watcher(api, Config::default()).default_backoff());
+        self.database.truncate_containers().await?;
+        while let Some(event) = changes.try_next().await? {
+            match event {
+                Event::Delete(pod) => {
+                    for container in pod_containers(&pod)? {
+                        self.database.delete_container(&container).await?;
+                    }
+                }
+                Event::InitApply(pod) | Event::Apply(pod) => {
+                    for container in pod_containers(&pod)? {
+                        if !self
+                            .settings
+                            .ignore
+                            .iter()
+                            .any(|ignore| ignore.matches(&container))
+                        {
+                            self.database.replace_container(&container).await?;
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        Ok(())
+    }
 }

@@ -36,6 +36,18 @@ pub struct Container {
 
 #[derive(Clone, sqlx::FromRow, Serialize)]
 pub struct Image {
+    pub image: String,
+    pub image_id: String,
+    pub latest_tag: String,
+    pub resolved_image_id: Option<String>,
+    pub latest_image_id: Option<String>,
+    pub version: Option<String>,
+    pub latest_version_req: String,
+    pub latest_version: Option<String>,
+}
+
+#[derive(Clone, sqlx::FromRow, Serialize)]
+pub struct ImageWithContainer {
     pub namespace: String,
     pub pod: String,
     pub container: String,
@@ -201,7 +213,27 @@ impl Database {
         Ok(())
     }
 
-    pub async fn list_images(&self) -> Result<Vec<Image>> {
+    pub async fn list_image(&self) -> Result<Vec<Image>> {
+        let images = sqlx::query_as(
+            r#"
+                SELECT
+                    image,
+                    image_id,
+                    latest_tag,
+                    resolved_image_id,
+                    latest_image_id,
+                    version,
+                    latest_version_req,
+                    latest_version
+                FROM image
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(images)
+    }
+
+    pub async fn list_image_with_container(&self) -> Result<Vec<ImageWithContainer>> {
         let images = sqlx::query_as(
             r#"
                 SELECT

@@ -20,7 +20,6 @@ mod version;
 
 use crate::database::{Database, Image};
 use crate::log::LogError;
-use crate::settings::Settings;
 use anyhow::Result;
 use image_ids::ImageIds;
 use latest_image_version::LatestImageVersion;
@@ -28,14 +27,12 @@ use log::info;
 use version::ImageVersion;
 
 pub struct Update {
-    settings: Settings,
     database: Database,
 }
 
 impl Update {
-    pub fn new(settings: Settings, database: Database) -> Result<Update> {
-        let update = Update { settings, database };
-        Ok(update)
+    pub fn new(database: Database) -> Update {
+        Update { database }
     }
 
     async fn update_image(&self, image: &Image) -> Image {
@@ -71,14 +68,7 @@ impl Update {
 
     pub async fn update_all(&self) -> Result<()> {
         self.database.delete_unused_images().await?;
-        let mut images = self.database.list_images().await?;
-        images.retain(|image| {
-            !self
-                .settings
-                .ignore
-                .iter()
-                .any(|ignore| ignore.matches(image))
-        });
+        let images = self.database.list_image().await?;
         for image in &images {
             let image = self.update_image(image).await;
             self.database.update_image_details(&image).await?;

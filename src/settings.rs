@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use crate::database::Image;
+use crate::database::Container;
 use anyhow::Result;
 use config::{Config, File, FileFormat};
 use serde::{Deserialize, Deserializer};
@@ -29,8 +29,8 @@ pub struct Ignore {
 }
 
 impl Ignore {
-    pub fn matches(&self, image: &Image) -> bool {
-        self.namespace == image.namespace && self.image == image.image
+    pub fn matches(&self, container: &Container) -> bool {
+        self.namespace == container.namespace && self.image == container.image
     }
 }
 

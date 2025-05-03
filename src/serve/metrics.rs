@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::database::Image;
+use crate::database::ImageWithContainer;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -75,17 +75,17 @@ impl<'a> From<&'a Registry> for ServeRegistry<'a> {
 pub async fn metrics<'a>(
     State(serve): State<Arc<Serve>>,
 ) -> std::result::Result<ServeRegistry<'a>, ServeError> {
-    let images = serve.database.list_images().await?;
+    let images = serve.database.list_image_with_container().await?;
     let registry = prometheus::default_registry();
     CONTAINER_GAUGE.reset();
     for image in images {
         let update_available = match image {
-            Image {
+            ImageWithContainer {
                 ref image_id,
                 latest_image_id: Some(ref latest_image_id),
                 ..
             } if image_id == latest_image_id => 0,
-            Image {
+            ImageWithContainer {
                 version: Some(ref version),
                 latest_version: Some(ref latest_version),
                 ..

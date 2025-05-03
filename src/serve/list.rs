@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::database::Image;
+use crate::database::ImageWithContainer;
 use axum::{Json, extract::State};
 use std::sync::Arc;
 
@@ -22,7 +22,7 @@ use super::{Serve, ServeError};
 
 pub async fn list(
     State(serve): State<Arc<Serve>>,
-) -> std::result::Result<Json<Vec<Image>>, ServeError> {
-    let images = serve.database.list_images().await?;
+) -> std::result::Result<Json<Vec<ImageWithContainer>>, ServeError> {
+    let images = serve.database.list_image_with_container().await?;
     Ok(Json(images))
 }
