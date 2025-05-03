@@ -70,8 +70,8 @@ spec:
 
 ```yaml
 database: "./kube-tag-radar.sqlite"
-update_delay: "5 minutes"
-update_interval: "3 hours"
+update_delay: "PT5M"
+update_interval: "PT3H"
 ignore:
 - namespace: ...
   image: ...
