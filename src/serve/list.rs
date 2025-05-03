@@ -23,6 +23,6 @@ use super::{Serve, ServeError};
 pub async fn list(
     State(serve): State<Arc<Serve>>,
 ) -> std::result::Result<Json<Vec<Image>>, ServeError> {
-    let images = serve.database.list().await?;
+    let images = serve.database.list_images().await?;
     Ok(Json(images))
 }

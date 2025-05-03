@@ -39,6 +39,7 @@ lazy_static! {
             "image",
             "image_id",
             "latest_tag",
+            "resolved_image_id",
             "latest_image_id",
             "version",
             "latest_version_req",
@@ -74,7 +75,7 @@ impl<'a> From<&'a Registry> for ServeRegistry<'a> {
 pub async fn metrics<'a>(
     State(serve): State<Arc<Serve>>,
 ) -> std::result::Result<ServeRegistry<'a>, ServeError> {
-    let images = serve.database.list().await?;
+    let images = serve.database.list_images().await?;
     let registry = prometheus::default_registry();
     CONTAINER_GAUGE.reset();
     for image in images {
@@ -99,6 +100,7 @@ pub async fn metrics<'a>(
                 &image.image,
                 &image.image_id,
                 &image.latest_tag,
+                &image.resolved_image_id.unwrap_or(String::new()),
                 &image.latest_image_id.unwrap_or(String::new()),
                 &image.version.unwrap_or(String::new()),
                 &image.latest_version_req,

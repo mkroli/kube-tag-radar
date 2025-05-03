@@ -19,14 +19,14 @@ use oci_client::Reference;
 use crate::database::Image;
 use anyhow::Result;
 
-pub trait UpdateImageVersion {
-    fn update_version(&mut self) -> Result<()>;
+pub trait ImageVersion {
+    fn image_version(&self) -> Result<Option<String>>;
 }
 
-impl UpdateImageVersion for Image {
-    fn update_version(&mut self) -> Result<()> {
+impl ImageVersion for Image {
+    fn image_version(&self) -> Result<Option<String>> {
         let reference = self.image.parse::<Reference>()?;
-        self.version = reference.tag().map(|tag| tag.to_string());
-        Ok(())
+        let version = reference.tag().map(|tag| tag.to_string());
+        Ok(version)
     }
 }

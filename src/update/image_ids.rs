@@ -19,12 +19,12 @@ use oci_client::{Reference, client::ClientConfig};
 
 use crate::database::Image;
 
-pub trait UpdateImageId {
-    async fn update_image_id(&mut self) -> Result<()>;
+pub trait ImageIds {
+    async fn image_ids(&self, tag: &str) -> Result<(String, String)>;
 }
 
-impl UpdateImageId for Image {
-    async fn update_image_id(&mut self) -> Result<()> {
+impl ImageIds for Image {
+    async fn image_ids(&self, tag: &str) -> Result<(String, String)> {
         let client_config = ClientConfig::default();
         let client = oci_client::Client::new(client_config);
 
@@ -49,7 +49,7 @@ impl UpdateImageId for Image {
         let latest = Reference::with_tag(
             reference.registry().to_string(),
             reference.repository().to_string(),
-            self.latest_tag.to_string(),
+            tag.to_string(),
         );
         let latest_digest = client
             .fetch_manifest_digest(&latest, &oci_client::secrets::RegistryAuth::Anonymous)
@@ -61,8 +61,8 @@ impl UpdateImageId for Image {
             latest_digest,
         );
 
-        self.image_id = reference.whole();
-        self.latest_image_id = Some(latest.whole());
-        Ok(())
+        let resolved_image_id = reference.whole();
+        let latest_image_id = latest.whole();
+        Ok((resolved_image_id, latest_image_id))
     }
 }

@@ -16,6 +16,7 @@
 
 mod database;
 mod log;
+mod observe;
 mod serve;
 mod settings;
 mod update;
@@ -53,7 +54,7 @@ async fn main() -> Result<()> {
     };
 
     let update_task = {
-        let update = Update::new(settings, database)?;
+        let update = Update::new(settings, database.clone())?;
         tokio::spawn(async move {
             let mut interval = tokio::time::interval_at(update_delay, update_interval);
             loop {
@@ -65,10 +66,13 @@ async fn main() -> Result<()> {
         })
     };
 
+    let observe_task = { tokio::spawn(observe::observe(database)) };
+
     info!("Started");
     tokio::select! {
         r = serve_task => r,
         r = update_task => r,
+        r = observe_task => r,
     }??;
     Ok(())
 }

@@ -21,8 +21,8 @@ use semver::{Version, VersionReq};
 
 use crate::database::Image;
 
-pub trait UpdateLatestImageVersion {
-    async fn update_latest_image_version(&mut self) -> Result<()>;
+pub trait LatestImageVersion {
+    async fn latest_image_version(&self) -> Result<Option<String>>;
 }
 
 async fn image_name_tags(image: &str) -> Result<Vec<String>> {
@@ -63,8 +63,8 @@ async fn image_tags(image: &Image) -> Result<Vec<String>> {
     }
 }
 
-impl UpdateLatestImageVersion for Image {
-    async fn update_latest_image_version(&mut self) -> Result<()> {
+impl LatestImageVersion for Image {
+    async fn latest_image_version(&self) -> Result<Option<String>> {
         let version_req = VersionReq::parse(&self.latest_version_req)?;
         let vp = VersionParser::new(version_req.clone())?;
         let tags = image_tags(self).await?;
@@ -82,8 +82,7 @@ impl UpdateLatestImageVersion for Image {
                 _ => latest_version,
             };
         }
-        self.latest_version = latest_version;
-        Ok(())
+        Ok(latest_version)
     }
 }
 
