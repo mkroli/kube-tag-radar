@@ -22,7 +22,7 @@ use config::{Config, File, FileFormat};
 use serde::{Deserialize, Deserializer};
 use tokio::time::Instant;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Ignore {
     pub namespace: String,
     pub image: String,
@@ -34,7 +34,7 @@ impl Ignore {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Settings {
     #[serde(default = "default_database")]
     pub database: String,

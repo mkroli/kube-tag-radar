@@ -17,6 +17,7 @@
 use anyhow::Result;
 use serde::Serialize;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use time::OffsetDateTime;
 
 #[derive(Clone)]
 pub struct Database {
@@ -34,7 +35,7 @@ pub struct Container {
     pub latest_version_req: String,
 }
 
-#[derive(Clone, sqlx::FromRow, Serialize)]
+#[derive(Clone, sqlx::FromRow)]
 pub struct Image {
     pub image: String,
     pub image_id: String,
@@ -44,6 +45,7 @@ pub struct Image {
     pub version: Option<String>,
     pub latest_version_req: String,
     pub latest_version: Option<String>,
+    pub last_checked: Option<OffsetDateTime>,
 }
 
 #[derive(Clone, sqlx::FromRow, Serialize)]
@@ -101,6 +103,7 @@ impl Database {
                 latest_image_id TEXT,
                 version TEXT,
                 latest_version TEXT,
+                last_checked DATETIME,
                 PRIMARY KEY(image, image_id, latest_tag, latest_version_req)
             )
         "#,
@@ -193,17 +196,19 @@ impl Database {
                         version = $1,
                         latest_version = $2,
                         resolved_image_id = $3,
-                        latest_image_id = $4
-                    WHERE image = $5
-                    AND image_id = $6
-                    AND latest_tag = $7
-                    AND latest_version_req = $8
+                        latest_image_id = $4,
+                        last_checked = $5
+                    WHERE image = $6
+                    AND image_id = $7
+                    AND latest_tag = $8
+                    AND latest_version_req = $9
                 "#,
         )
         .bind(&image.version)
         .bind(&image.latest_version)
         .bind(&image.resolved_image_id)
         .bind(&image.latest_image_id)
+        .bind(OffsetDateTime::now_utc())
         .bind(&image.image)
         .bind(&image.image_id)
         .bind(&image.latest_tag)
@@ -224,7 +229,8 @@ impl Database {
                     latest_image_id,
                     version,
                     latest_version_req,
-                    latest_version
+                    latest_version,
+                    last_checked
                 FROM image
             "#,
         )

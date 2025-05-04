@@ -20,19 +20,22 @@ mod version;
 
 use crate::database::{Database, Image};
 use crate::log::LogError;
+use crate::settings::Settings;
 use anyhow::Result;
 use image_ids::ImageIds;
 use latest_image_version::LatestImageVersion;
 use log::info;
+use time::OffsetDateTime;
 use version::ImageVersion;
 
 pub struct Update {
+    settings: Settings,
     database: Database,
 }
 
 impl Update {
-    pub fn new(database: Database) -> Update {
-        Update { database }
+    pub fn new(settings: Settings, database: Database) -> Update {
+        Update { settings, database }
     }
 
     async fn update_image(&self, image: &Image) -> Image {
@@ -70,8 +73,15 @@ impl Update {
         self.database.delete_unused_images().await?;
         let images = self.database.list_image().await?;
         for image in &images {
-            let image = self.update_image(image).await;
-            self.database.update_image_details(&image).await?;
+            match image.last_checked {
+                Some(last_checked)
+                    if (OffsetDateTime::now_utc() - last_checked)
+                        < self.settings.update_interval => {}
+                _ => {
+                    let image = self.update_image(image).await;
+                    self.database.update_image_details(&image).await?;
+                }
+            }
         }
         Ok(())
     }

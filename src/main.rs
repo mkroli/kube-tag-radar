@@ -21,6 +21,8 @@ mod serve;
 mod settings;
 mod update;
 
+use std::time::Duration;
+
 use ::log::info;
 use anyhow::Result;
 use clap::Parser;
@@ -45,7 +47,6 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let settings = Settings::read(&cli.config_file)?;
     let update_delay = settings.update_delay;
-    let update_interval = settings.update_interval;
     let database = Database::new(&settings.database).await?;
 
     let serve_task = {
@@ -54,19 +55,17 @@ async fn main() -> Result<()> {
     };
 
     let observe_task = {
-        let observe = Observe::new(settings, database.clone());
+        let observe = Observe::new(settings.clone(), database.clone());
         tokio::spawn(async move { observe.observe().await })
     };
 
     let update_task = {
-        let update = Update::new(database);
+        let update = Update::new(settings, database);
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval_at(update_delay, update_interval);
+            let mut interval = tokio::time::interval_at(update_delay, Duration::from_secs(60));
             loop {
                 interval.tick().await;
-                info!("Starting updates");
                 update.update_all().await.log_error();
-                info!("Finished updating.");
             }
         })
     };
