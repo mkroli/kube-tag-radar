@@ -21,8 +21,6 @@ mod serve;
 mod settings;
 mod update;
 
-use std::time::Duration;
-
 use ::log::info;
 use anyhow::Result;
 use clap::Parser;
@@ -60,9 +58,10 @@ async fn main() -> Result<()> {
     };
 
     let update_task = {
+        let tick_interval = settings.tick_interval;
         let update = Update::new(settings, database);
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval_at(update_delay, Duration::from_secs(60));
+            let mut interval = tokio::time::interval_at(update_delay, tick_interval);
             loop {
                 interval.tick().await;
                 update.update_all().await.log_error();

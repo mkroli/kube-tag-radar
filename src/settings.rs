@@ -45,6 +45,8 @@ pub struct Settings {
         default = "default_update_interval"
     )]
     pub update_interval: Duration,
+    #[serde(deserialize_with = "parse_duration", default = "default_tick_interval")]
+    pub tick_interval: Duration,
     #[serde(default = "Vec::new")]
     pub ignore: Vec<Ignore>,
 }
@@ -59,6 +61,10 @@ fn default_update_delay() -> Instant {
 
 fn default_update_interval() -> Duration {
     Duration::from_secs(3 * 60 * 60)
+}
+
+fn default_tick_interval() -> Duration {
+    Duration::from_secs(60)
 }
 
 fn parse_duration<'d, D: Deserializer<'d>>(
