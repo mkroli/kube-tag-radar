@@ -12,7 +12,7 @@
         function beforeSwapList(event) {
             l = JSON.parse(event.detail.serverResponse);
             l = l.map(function(e) {
-                e.cls = e["image_id"] === e["latest_image_id"] || e["version"] === e["latest_version"] ? "" : "is-warning";
+                e.cls = e["image_id"] === e["latest_image_id"] || e["resolved_image_id"] === e["latest_image_id"] || e["version"] === e["latest_version"] ? "" : "is-warning";
                 return e;
             });
             event.detail.serverResponse = JSON.stringify(l);

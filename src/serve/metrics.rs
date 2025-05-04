@@ -81,6 +81,11 @@ pub async fn metrics<'a>(
     for image in images {
         let update_available = match image {
             ImageWithContainer {
+                resolved_image_id: Some(ref resolved_image_id),
+                latest_image_id: Some(ref latest_image_id),
+                ..
+            } if resolved_image_id == latest_image_id => 0,
+            ImageWithContainer {
                 ref image_id,
                 latest_image_id: Some(ref latest_image_id),
                 ..
