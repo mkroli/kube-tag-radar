@@ -65,6 +65,7 @@ spec:
 | --- | --- | --- |
 | `kube-tag-radar.mkroli.com/tag` | `latest` | Will compare the current image digest with the digest of the given tag to check if it's up-to-date |
 | `kube-tag-radar.mkroli.com/version_req` | `*` | Used to restrict the latest version of the image (see [Specifying Dependencies](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html)). |
+| `kube-tag-radar.mkroli.com/version_regex` | `.*` | Can be used to filter available tags. If specified - the first capture group will be used to extract a semver version for proper comparison. Example: `^(.*)-alpine$` |
 
 ### Example config file
 
