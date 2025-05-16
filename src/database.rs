@@ -33,6 +33,7 @@ pub struct Container {
     pub image_id: String,
     pub latest_tag: String,
     pub latest_version_req: String,
+    pub latest_version_regex: String,
 }
 
 #[derive(Clone, sqlx::FromRow)]
@@ -44,6 +45,7 @@ pub struct Image {
     pub latest_image_id: Option<String>,
     pub version: Option<String>,
     pub latest_version_req: String,
+    pub latest_version_regex: String,
     pub latest_version: Option<String>,
     pub last_checked: Option<OffsetDateTime>,
 }
@@ -60,6 +62,7 @@ pub struct ImageWithContainer {
     pub latest_image_id: Option<String>,
     pub version: Option<String>,
     pub latest_version_req: String,
+    pub latest_version_regex: String,
     pub latest_version: Option<String>,
 }
 
@@ -86,6 +89,7 @@ impl Database {
                 image_id TEXT NOT NULL,
                 latest_tag TEXT NOT NULL,
                 latest_version_req TEXT NOT NULL,
+                latest_version_regex TEXT NOT NULL,
                 PRIMARY KEY(namespace, pod, container)
             )
             "#,
@@ -99,12 +103,13 @@ impl Database {
                 image_id TEXT NOT NULL,
                 latest_tag TEXT NOT NULL,
                 latest_version_req TEXT NOT NULL,
+                latest_version_regex TEXT NOT NULL,
                 resolved_image_id TEXT,
                 latest_image_id TEXT,
                 version TEXT,
                 latest_version TEXT,
                 last_checked DATETIME,
-                PRIMARY KEY(image, image_id, latest_tag, latest_version_req)
+                PRIMARY KEY(image, image_id, latest_tag, latest_version_req, latest_version_regex)
             )
         "#,
         )
@@ -148,6 +153,7 @@ impl Database {
                 AND image.image_id = container.image_id
                 AND image.latest_tag = container.latest_tag
                 AND image.latest_version_req = container.latest_version_req
+                AND image.latest_version_regex = container.latest_version_regex
                 WHERE container.image IS NULL AND container.image_id IS NULL
             )
             "#,
@@ -162,13 +168,14 @@ impl Database {
         Database::delete_container_query(container)?
             .execute(&mut *tx)
             .await?;
-        sqlx::query("INSERT OR IGNORE INTO image (image, image_id, latest_tag, latest_version_req) VALUES ($1, $2, $3, $4)")
+        sqlx::query("INSERT OR IGNORE INTO image (image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5)")
             .bind(&container.image)
             .bind(&container.image_id)
             .bind(&container.latest_tag)
             .bind(&container.latest_version_req)
+            .bind(&container.latest_version_regex)
             .execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req) VALUES ($1, $2, $3, $4, $5, $6, $7)")
+        sqlx::query("INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)")
             .bind(&container.namespace)
             .bind(&container.pod)
             .bind(&container.container)
@@ -176,6 +183,7 @@ impl Database {
             .bind(&container.image_id)
             .bind(&container.latest_tag)
             .bind(&container.latest_version_req)
+            .bind(&container.latest_version_regex)
             .execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
@@ -202,6 +210,7 @@ impl Database {
                     AND image_id = $7
                     AND latest_tag = $8
                     AND latest_version_req = $9
+                    AND latest_version_regex = $10
                 "#,
         )
         .bind(&image.version)
@@ -213,6 +222,7 @@ impl Database {
         .bind(&image.image_id)
         .bind(&image.latest_tag)
         .bind(&image.latest_version_req)
+        .bind(&image.latest_version_regex)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -229,6 +239,7 @@ impl Database {
                     latest_image_id,
                     version,
                     latest_version_req,
+                    latest_version_regex,
                     latest_version,
                     last_checked
                 FROM image
@@ -253,6 +264,7 @@ impl Database {
                     image.latest_image_id,
                     image.version,
                     image.latest_version_req,
+                    image.latest_version_regex,
                     image.latest_version
                 FROM container
                 JOIN image
@@ -260,6 +272,7 @@ impl Database {
                     AND container.image_id = image.image_id
                     AND container.latest_tag = image.latest_tag
                     AND container.latest_version_req = image.latest_version_req
+                    AND container.latest_version_regex = image.latest_version_regex
             "#,
         )
         .fetch_all(&self.pool)

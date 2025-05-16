@@ -43,6 +43,7 @@ lazy_static! {
             "latest_image_id",
             "version",
             "latest_version_req",
+            "latest_version_regex",
             "latest_version"
         ]
     )
@@ -109,6 +110,7 @@ pub async fn metrics<'a>(
                 &image.latest_image_id.unwrap_or(String::new()),
                 &image.version.unwrap_or(String::new()),
                 &image.latest_version_req,
+                &image.latest_version_regex,
                 &image.latest_version.unwrap_or(String::new()),
             ])
             .set(update_available.into());

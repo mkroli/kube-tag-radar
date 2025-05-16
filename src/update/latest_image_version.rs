@@ -67,21 +67,19 @@ impl LatestImageVersion for Image {
     async fn latest_image_version(&self) -> Result<Option<String>> {
         let version_req = VersionReq::parse(&self.latest_version_req)?;
         let vp = VersionParser::new(version_req.clone())?;
-        let tags = image_tags(self).await?;
+        let version_regex = Regex::new(&self.latest_version_regex)?;
 
-        let mut latest_version: Option<String> = None;
-        for tag in tags {
-            latest_version = match vp.parse(&tag) {
-                Some(v) => match &latest_version {
-                    Some(lv) => match vp.parse(lv) {
-                        Some(lv) if lv >= v => latest_version,
-                        _ => Some(tag.to_string()),
-                    },
-                    _ => Some(tag.to_string()),
-                },
-                _ => latest_version,
-            };
-        }
+        let latest_version = image_tags(self)
+            .await?
+            .into_iter()
+            .flat_map(|v| match version_regex.captures(&v) {
+                Some(c) if c.len() >= 2 => Some((c[0].to_string(), c[1].to_string())),
+                Some(c) if c.len() == 1 => Some((c[0].to_string(), c[0].to_string())),
+                _ => None,
+            })
+            .flat_map(|(v, s)| vp.parse(&s).map(|version| (v, version)))
+            .max_by(|(_, a), (_, b)| a.cmp(b))
+            .map(|(v, _)| v.to_string());
         Ok(latest_version)
     }
 }
@@ -91,7 +89,7 @@ struct VersionParser {
     version_req: VersionReq,
 }
 
-const VERSION_REGEX: &str = r#"^[vV]?0*(?<major>0|[1-9]\d*)(?:\.0*(?<minor>0|[1-9]\d*))?(?:\.0*(?<patch>0|[1-9]\d*))?(?<suffix>.*)$"#;
+const VERSION_REGEX: &str = r#"^[vV]?(?<major>0|[0-9]\d*)(?:\.0*(?<minor>0|[0-9]\d*))?(?:\.0*(?<patch>0|[0-9]\d*))?(?<suffix>.*)$"#;
 
 impl VersionParser {
     fn new(version_req: VersionReq) -> Result<Self> {

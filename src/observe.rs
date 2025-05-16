@@ -41,16 +41,16 @@ fn pod_containers(pod: &Pod) -> Result<Vec<Container>> {
     let mut containers = Vec::new();
 
     let annotations = &pod.metadata.annotations.as_ref();
-    let latest_tag: String = annotations
-        .map(|a| a.get("kube-tag-radar.mkroli.com/tag"))
-        .flatten()
-        .cloned()
-        .unwrap_or("latest".to_string());
-    let latest_version_req: String = annotations
-        .map(|a| a.get("kube-tag-radar.mkroli.com/version_req"))
-        .flatten()
-        .cloned()
-        .unwrap_or("*".to_string());
+    let annotation = |name: &str, default: &str| -> String {
+        annotations
+            .map(|a| a.get(&format!("kube-tag-radar.mkroli.com/{name}")))
+            .flatten()
+            .cloned()
+            .unwrap_or(default.to_string())
+    };
+    let latest_tag: String = annotation("tag", "latest");
+    let latest_version_req: String = annotation("version_req", "*");
+    let latest_version_regex: String = annotation("version_regex", ".*");
 
     if let (Some(namespace), Some(pod_name), Some(status)) =
         (&pod.namespace(), &pod.name(), &pod.status)
@@ -65,6 +65,7 @@ fn pod_containers(pod: &Pod) -> Result<Vec<Container>> {
                     image_id: c.image_id.to_string(),
                     latest_tag: latest_tag.to_string(),
                     latest_version_req: latest_version_req.to_string(),
+                    latest_version_regex: latest_version_regex.to_string(),
                 };
                 containers.push(container);
             }
