@@ -94,12 +94,10 @@ impl Observe {
                 }
                 Event::InitApply(pod) | Event::Apply(pod) => {
                     for container in pod_containers(&pod)? {
-                        if !self
-                            .settings
-                            .ignore
-                            .iter()
-                            .any(|ignore| ignore.matches(&container))
-                        {
+                        let ignored = self.settings.ignore.iter().any(|i| i.matches(&container));
+                        if ignored {
+                            self.database.delete_container(&container).await?;
+                        } else {
                             self.database.replace_container(&container).await?;
                         }
                     }
