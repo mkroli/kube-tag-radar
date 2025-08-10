@@ -54,21 +54,20 @@ fn pod_containers(pod: &Pod) -> Result<Vec<Container>> {
 
     if let (Some(namespace), Some(pod_name), Some(status)) =
         (&pod.namespace(), &pod.name(), &pod.status)
+        && let Some(container_statuses) = &status.container_statuses
     {
-        if let Some(container_statuses) = &status.container_statuses {
-            for c in container_statuses {
-                let container = Container {
-                    namespace: namespace.to_string(),
-                    pod: pod_name.to_string(),
-                    container: c.name.to_string(),
-                    image: c.image.to_string(),
-                    image_id: c.image_id.to_string(),
-                    latest_tag: latest_tag.to_string(),
-                    latest_version_req: latest_version_req.to_string(),
-                    latest_version_regex: latest_version_regex.to_string(),
-                };
-                containers.push(container);
-            }
+        for c in container_statuses {
+            let container = Container {
+                namespace: namespace.to_string(),
+                pod: pod_name.to_string(),
+                container: c.name.to_string(),
+                image: c.image.to_string(),
+                image_id: c.image_id.to_string(),
+                latest_tag: latest_tag.to_string(),
+                latest_version_req: latest_version_req.to_string(),
+                latest_version_regex: latest_version_regex.to_string(),
+            };
+            containers.push(container);
         }
     }
 
