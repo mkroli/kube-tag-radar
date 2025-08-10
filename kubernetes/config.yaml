@@ -1,1 +1,7 @@
+default_database: "/data/kube-tag-radar.sqlite"
+update_delay: PT5M
+update_interval: PT3H
+tick_interval: PT1M
+bind_address: 0.0.0.0:8080
+
 ignore: []

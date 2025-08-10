@@ -22,32 +22,6 @@ spec:
       containers:
         - name: kube-tag-radar
           image: ghcr.io/mkroli/kube-tag-radar:0.6.2
-          env:
-            - name: KTR_DEFAULT_DATABASE
-              valueFrom:
-                configMapKeyRef:
-                  name: kube-tag-radar-config
-                  key: default_database
-            - name: KTR_UPDATE_DELAY
-              valueFrom:
-                configMapKeyRef:
-                  name: kube-tag-radar-config
-                  key: update_delay
-            - name: KTR_UPDATE_INTERVAL
-              valueFrom:
-                configMapKeyRef:
-                  name: kube-tag-radar-config
-                  key: update_interval
-            - name: KTR_TICK_INTERVAL
-              valueFrom:
-                configMapKeyRef:
-                  name: kube-tag-radar-config
-                  key: tick_interval
-            - name: KTR_BIND_ADDRESS
-              valueFrom:
-                configMapKeyRef:
-                  name: kube-tag-radar-config
-                  key: bind_address
           ports:
             - containerPort: 8080
           volumeMounts:

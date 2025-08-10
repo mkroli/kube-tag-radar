@@ -8,7 +8,5 @@ generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:
   - name: kube-tag-radar-config
-    envs:
-      - config.env
     files:
       - config.yaml
