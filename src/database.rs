@@ -16,7 +16,10 @@
 
 use anyhow::Result;
 use serde::Serialize;
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use sqlx::{
+    Sqlite, SqlitePool,
+    sqlite::{SqliteArguments, SqlitePoolOptions},
+};
 use time::OffsetDateTime;
 
 #[derive(Clone)]
@@ -79,71 +82,31 @@ impl Database {
     }
 
     async fn init(&self) -> Result<()> {
-        let _ = sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS container (
-                namespace TEXT NOT NULL,
-                pod TEXT NOT NULL,
-                container TEXT NOT NULL,
-                image TEXT NOT NULL,
-                image_id TEXT NOT NULL,
-                latest_tag TEXT NOT NULL,
-                latest_version_req TEXT NOT NULL,
-                latest_version_regex TEXT NOT NULL,
-                PRIMARY KEY(namespace, pod, container)
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-        let _ = sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS image (
-                image TEXT NOT NULL,
-                image_id TEXT NOT NULL,
-                latest_tag TEXT NOT NULL,
-                latest_version_req TEXT NOT NULL,
-                latest_version_regex TEXT NOT NULL,
-                resolved_image_id TEXT,
-                latest_image_id TEXT,
-                version TEXT,
-                latest_version TEXT,
-                last_checked DATETIME,
-                PRIMARY KEY(image, image_id, latest_tag, latest_version_req, latest_version_regex)
-            )
-        "#,
-        )
-        .execute(&self.pool)
-        .await?;
+        let () = sqlx::migrate!("./migrations").run(&self.pool).await?;
         Ok(())
     }
 
     pub async fn truncate_containers(&self) -> Result<()> {
-        sqlx::query("DELETE FROM container")
+        sqlx::query!("DELETE FROM container")
             .execute(&self.pool)
             .await?;
         Ok(())
     }
 
-    fn delete_container_query<'q, DB>(
+    fn delete_container_query<'q>(
         container: &'q Container,
-    ) -> Result<sqlx::query::Query<'q, DB, DB::Arguments<'q>>>
-    where
-        DB: sqlx::Database,
-        std::string::String: sqlx::Type<DB>,
-        std::string::String: sqlx::Encode<'q, DB>,
-    {
-        let q = sqlx::query(
+    ) -> Result<sqlx::query::Query<'q, Sqlite, SqliteArguments<'q>>> {
+        let q = sqlx::query!(
             "DELETE FROM container WHERE namespace = $1 AND pod = $2 AND container = $3",
-        )
-        .bind(&container.namespace)
-        .bind(&container.pod)
-        .bind(&container.container);
+            container.namespace,
+            container.pod,
+            container.container
+        );
         Ok(q)
     }
 
     pub async fn delete_unused_images(&self) -> Result<()> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             DELETE FROM image WHERE ROWID IN (
                 SELECT image.ROWID
@@ -168,23 +131,27 @@ impl Database {
         Database::delete_container_query(container)?
             .execute(&mut *tx)
             .await?;
-        sqlx::query("INSERT OR IGNORE INTO image (image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5)")
-            .bind(&container.image)
-            .bind(&container.image_id)
-            .bind(&container.latest_tag)
-            .bind(&container.latest_version_req)
-            .bind(&container.latest_version_regex)
-            .execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)")
-            .bind(&container.namespace)
-            .bind(&container.pod)
-            .bind(&container.container)
-            .bind(&container.image)
-            .bind(&container.image_id)
-            .bind(&container.latest_tag)
-            .bind(&container.latest_version_req)
-            .bind(&container.latest_version_regex)
-            .execute(&mut *tx).await?;
+        sqlx::query!(
+            "INSERT OR IGNORE INTO image (image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5)",
+            container.image,
+            container.image_id,
+            container.latest_tag,
+            container.latest_version_req,
+            container.latest_version_regex,
+        )
+        .execute(&mut *tx).await?;
+        sqlx::query!(
+            "INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            container.namespace,
+            container.pod,
+            container.container,
+            container.image,
+            container.image_id,
+            container.latest_tag,
+            container.latest_version_req,
+            container.latest_version_regex,
+        )
+        .execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -197,7 +164,8 @@ impl Database {
     }
 
     pub async fn update_image_details(&self, image: &Image) -> Result<()> {
-        sqlx::query(
+        let now = OffsetDateTime::now_utc();
+        sqlx::query!(
             r#"
                     UPDATE image
                     SET
@@ -211,25 +179,26 @@ impl Database {
                     AND latest_tag = $8
                     AND latest_version_req = $9
                     AND latest_version_regex = $10
-                "#,
+            "#,
+            image.version,
+            image.latest_version,
+            image.resolved_image_id,
+            image.latest_image_id,
+            now,
+            image.image,
+            image.image_id,
+            image.latest_tag,
+            image.latest_version_req,
+            image.latest_version_regex,
         )
-        .bind(&image.version)
-        .bind(&image.latest_version)
-        .bind(&image.resolved_image_id)
-        .bind(&image.latest_image_id)
-        .bind(OffsetDateTime::now_utc())
-        .bind(&image.image)
-        .bind(&image.image_id)
-        .bind(&image.latest_tag)
-        .bind(&image.latest_version_req)
-        .bind(&image.latest_version_regex)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub async fn list_image(&self) -> Result<Vec<Image>> {
-        let images = sqlx::query_as(
+        let images = sqlx::query_as!(
+            Image,
             r#"
                 SELECT
                     image,
@@ -251,7 +220,8 @@ impl Database {
     }
 
     pub async fn list_image_with_container(&self) -> Result<Vec<ImageWithContainer>> {
-        let images = sqlx::query_as(
+        let images = sqlx::query_as!(
+            ImageWithContainer,
             r#"
                 SELECT
                     container.namespace,
