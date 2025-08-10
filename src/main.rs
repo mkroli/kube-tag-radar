@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
     let database = Database::new(&settings.database).await?;
 
     let serve_task = {
-        let serve = Serve::new(database.clone());
+        let serve = Serve::new(settings.clone(), database.clone());
         tokio::spawn(async move { serve.serve().await })
     };
 

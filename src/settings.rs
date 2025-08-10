@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-use std::time::Duration;
+use std::{
+    net::{IpAddr, Ipv6Addr, SocketAddr},
+    time::Duration,
+};
 
 use crate::database::Container;
 use anyhow::Result;
@@ -47,6 +50,8 @@ pub struct Settings {
     pub update_interval: Duration,
     #[serde(deserialize_with = "parse_duration", default = "default_tick_interval")]
     pub tick_interval: Duration,
+    #[serde(default = "default_bind_address")]
+    pub bind_address: SocketAddr,
     #[serde(default = "Vec::new")]
     pub ignore: Vec<Ignore>,
 }
@@ -65,6 +70,10 @@ fn default_update_interval() -> Duration {
 
 fn default_tick_interval() -> Duration {
     Duration::from_secs(60)
+}
+
+fn default_bind_address() -> SocketAddr {
+    SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 8080)
 }
 
 fn parse_duration<'d, D: Deserializer<'d>>(

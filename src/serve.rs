@@ -17,7 +17,7 @@
 mod list;
 mod metrics;
 
-use crate::database::Database;
+use crate::{database::Database, settings::Settings};
 use anyhow::Result;
 use axum::{
     Router,
@@ -29,6 +29,7 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 
 pub struct Serve {
+    settings: Settings,
     database: Database,
 }
 
@@ -54,17 +55,17 @@ where
 }
 
 impl Serve {
-    pub fn new(database: Database) -> Serve {
-        Serve { database }
+    pub fn new(settings: Settings, database: Database) -> Serve {
+        Serve { settings, database }
     }
 
     pub async fn serve(self) -> Result<()> {
+        let listener = TcpListener::bind(&self.settings.bind_address).await?;
         let app = Router::new()
             .route("/", get(root))
             .route("/api/list", get(list::list))
             .route("/metrics", get(metrics::metrics))
             .with_state(Arc::new(self));
-        let listener = TcpListener::bind("0.0.0.0:8080").await?;
         axum::serve(listener, app).await?;
         Ok(())
     }
