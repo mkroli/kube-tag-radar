@@ -13,13 +13,9 @@ async fn migrate() {
     let () = sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 }
 
-fn main() {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
-    rt.block_on(migrate());
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    migrate().await;
     println!("cargo:rustc-env=DATABASE_URL={BUILD_DATABASE_URL}");
     println!("cargo:rerun-if-changed=migrations");
 }
