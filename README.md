@@ -37,14 +37,30 @@ spec:
     kustomize:
       namespace: kube-tag-radar
       patches:
-      - target:
+      - patch: |-
+          apiVersion: v1
           kind: ConfigMap
-          name: kube-tag-radar-config
-        patch: |-
-          - op: add
-            path: /data/config.yaml
-            value: |-
+          metadata:
+            name: kube-tag-radar-config
+          data:
+            config.yaml: |-
+              database: /data/kube-tag-radar.sqlite
               ignore: []
+      - patch: |-
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kube-tag-radar
+            annotations:
+              reloader.stakater.com/auto: "true"
+          spec:
+            template:
+              spec:
+                volumes:
+                  - name: data
+                    emptyDir:
+                    hostPath:
+                      path: "/tmp/kube-tag-radar"
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
