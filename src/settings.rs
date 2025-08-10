@@ -21,7 +21,7 @@ use std::{
 
 use crate::database::Container;
 use anyhow::Result;
-use config::{Config, File, FileFormat};
+use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Deserializer};
 use tokio::time::Instant;
 
@@ -103,6 +103,7 @@ impl Settings {
                     .format(FileFormat::Yaml)
                     .required(false),
             )
+            .add_source(Environment::with_prefix("KTR"))
             .build()?;
         let settings = config.try_deserialize()?;
         Ok(settings)

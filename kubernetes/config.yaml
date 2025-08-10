@@ -1,2 +1,1 @@
-update_delay: "PT5M"
-update_interval: "PT3H"
+ignore: []
