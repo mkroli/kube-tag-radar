@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::database::ImageWithContainer;
+use crate::{database::ImageWithContainer, settings::Settings};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -73,6 +73,31 @@ impl<'a> From<&'a Registry> for ServeRegistry<'a> {
     }
 }
 
+fn ignored(settings: &Settings, image: &ImageWithContainer) -> bool {
+    settings.ignore.iter().any(|i| i.matches(image))
+}
+
+fn update_available(image: &ImageWithContainer) -> bool {
+    match *image {
+        ImageWithContainer {
+            resolved_image_id: Some(ref resolved_image_id),
+            latest_image_id: Some(ref latest_image_id),
+            ..
+        } if resolved_image_id == latest_image_id => false,
+        ImageWithContainer {
+            ref image_id,
+            latest_image_id: Some(ref latest_image_id),
+            ..
+        } if image_id == latest_image_id => false,
+        ImageWithContainer {
+            version: Some(ref version),
+            latest_version: Some(ref latest_version),
+            ..
+        } if version == latest_version => false,
+        _ => true,
+    }
+}
+
 pub async fn metrics<'a>(
     State(serve): State<Arc<Serve>>,
 ) -> std::result::Result<ServeRegistry<'a>, ServeError> {
@@ -80,23 +105,12 @@ pub async fn metrics<'a>(
     let registry = prometheus::default_registry();
     CONTAINER_GAUGE.reset();
     for image in images {
-        let update_available = match image {
-            ImageWithContainer {
-                resolved_image_id: Some(ref resolved_image_id),
-                latest_image_id: Some(ref latest_image_id),
-                ..
-            } if resolved_image_id == latest_image_id => 0,
-            ImageWithContainer {
-                ref image_id,
-                latest_image_id: Some(ref latest_image_id),
-                ..
-            } if image_id == latest_image_id => 0,
-            ImageWithContainer {
-                version: Some(ref version),
-                latest_version: Some(ref latest_version),
-                ..
-            } if version == latest_version => 0,
-            _ => 1,
+        let value = if ignored(&serve.settings, &image) {
+            -1.
+        } else if update_available(&image) {
+            1.
+        } else {
+            0.
         };
         CONTAINER_GAUGE
             .with_label_values(&[
@@ -113,7 +127,7 @@ pub async fn metrics<'a>(
                 &image.latest_version_regex,
                 &image.latest_version.unwrap_or(String::new()),
             ])
-            .set(update_available.into());
+            .set(value);
     }
     Ok(registry.into())
 }

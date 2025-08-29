@@ -16,10 +16,7 @@
 
 use anyhow::Result;
 use serde::Serialize;
-use sqlx::{
-    Sqlite, SqlitePool,
-    sqlite::{SqliteArguments, SqlitePoolOptions},
-};
+use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use time::OffsetDateTime;
 
 #[derive(Clone)]
@@ -69,6 +66,12 @@ pub struct ImageWithContainer {
     pub latest_version: Option<String>,
 }
 
+pub trait PodInfo {
+    fn namespace(&self) -> Option<String>;
+    fn name(&self) -> Option<String>;
+    fn containers(&self) -> Vec<Container>;
+}
+
 impl Database {
     pub async fn new(filename: &str) -> Result<Database> {
         let db_url = format!("sqlite:{filename}?mode=rwc");
@@ -93,18 +96,6 @@ impl Database {
         Ok(())
     }
 
-    fn delete_container_query<'q>(
-        container: &'q Container,
-    ) -> Result<sqlx::query::Query<'q, Sqlite, SqliteArguments<'q>>> {
-        let q = sqlx::query!(
-            "DELETE FROM container WHERE namespace = $1 AND pod = $2 AND container = $3",
-            container.namespace,
-            container.pod,
-            container.container
-        );
-        Ok(q)
-    }
-
     pub async fn delete_unused_images(&self) -> Result<()> {
         sqlx::query!(
             r#"
@@ -126,40 +117,57 @@ impl Database {
         Ok(())
     }
 
-    pub async fn replace_container(&self, container: &Container) -> Result<()> {
-        let mut tx = self.pool.begin().await?;
-        Database::delete_container_query(container)?
-            .execute(&mut *tx)
+    pub async fn delete_pod<P: PodInfo>(&self, pod: &P) -> Result<()> {
+        if let (Some(namespace), Some(name)) = (pod.namespace(), pod.name()) {
+            sqlx::query!(
+                "DELETE FROM container WHERE namespace = $1 AND pod = $2",
+                namespace,
+                name,
+            )
+            .execute(&self.pool)
             .await?;
-        sqlx::query!(
-            "INSERT OR IGNORE INTO image (image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5)",
-            container.image,
-            container.image_id,
-            container.latest_tag,
-            container.latest_version_req,
-            container.latest_version_regex,
-        )
-        .execute(&mut *tx).await?;
-        sqlx::query!(
-            "INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-            container.namespace,
-            container.pod,
-            container.container,
-            container.image,
-            container.image_id,
-            container.latest_tag,
-            container.latest_version_req,
-            container.latest_version_regex,
-        )
-        .execute(&mut *tx).await?;
-        tx.commit().await?;
+        }
         Ok(())
     }
 
-    pub async fn delete_container(&self, container: &Container) -> Result<()> {
-        Database::delete_container_query(container)?
-            .execute(&self.pool)
+    pub async fn replace_pod<P: PodInfo>(&self, pod: &P) -> Result<()> {
+        if let (Some(namespace), Some(name)) = (pod.namespace(), pod.name()) {
+            let mut tx = self.pool.begin().await?;
+            sqlx::query!(
+                "DELETE FROM container WHERE namespace = $1 AND pod = $2",
+                namespace,
+                name,
+            )
+            .execute(&mut *tx)
             .await?;
+
+            for container in pod.containers() {
+                sqlx::query!(
+                    "INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                    container.namespace,
+                    container.pod,
+                    container.container,
+                    container.image,
+                    container.image_id,
+                    container.latest_tag,
+                    container.latest_version_req,
+                    container.latest_version_regex,
+                )
+                .execute(&mut *tx)
+                .await?;
+                sqlx::query!(
+                    "INSERT OR IGNORE INTO image (image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5)",
+                    container.image,
+                    container.image_id,
+                    container.latest_tag,
+                    container.latest_version_req,
+                    container.latest_version_regex,
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
+            tx.commit().await?;
+        }
         Ok(())
     }
 

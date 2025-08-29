@@ -19,7 +19,7 @@ use std::{
     time::Duration,
 };
 
-use crate::database::Container;
+use crate::database::ImageWithContainer;
 use anyhow::Result;
 use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Deserializer};
@@ -32,7 +32,7 @@ pub struct Ignore {
 }
 
 impl Ignore {
-    pub fn matches(&self, container: &Container) -> bool {
+    pub fn matches(&self, container: &ImageWithContainer) -> bool {
         self.namespace == container.namespace && self.image == container.image
     }
 }

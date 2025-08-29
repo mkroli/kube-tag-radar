@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
     };
 
     let observe_task = {
-        let observe = Observe::new(settings.clone(), database.clone());
+        let observe = Observe::new(database.clone());
         tokio::spawn(async move { observe.observe().await })
     };
 
