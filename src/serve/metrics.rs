@@ -102,7 +102,7 @@ impl ServeMetrics {
     }
 }
 
-impl<'a> IntoResponse for &'a ServeMetrics {
+impl IntoResponse for &ServeMetrics {
     fn into_response(self) -> Response {
         let mut buffer = String::new();
         let result = match encode(&mut buffer, &self.registry) {
