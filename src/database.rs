@@ -15,6 +15,7 @@
  */
 
 use anyhow::Result;
+use prometheus_client::encoding::EncodeLabelSet;
 use serde::Serialize;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use time::OffsetDateTime;
@@ -50,7 +51,7 @@ pub struct Image {
     pub last_checked: Option<OffsetDateTime>,
 }
 
-#[derive(Clone, sqlx::FromRow, Serialize)]
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Hash, PartialEq, Eq, EncodeLabelSet)]
 pub struct ImageWithContainer {
     pub namespace: String,
     pub pod: String,

@@ -14,64 +14,27 @@
  * limitations under the License.
  */
 
-use crate::{database::ImageWithContainer, settings::Settings};
+use std::sync::Arc;
+
+use crate::{
+    database::{Database, ImageWithContainer},
+    settings::Settings,
+};
 use axum::{
+    Router,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
+    routing::get,
 };
 use axum_extra::{TypedHeader, headers::ContentType};
-use lazy_static::lazy_static;
-use prometheus::{Encoder, Registry, TextEncoder};
-use prometheus::{GaugeVec, register_gauge_vec};
-use std::sync::Arc;
+use prometheus_client::{
+    encoding::text::encode,
+    metrics::{family::Family, gauge::Gauge},
+    registry::Registry,
+};
 
-use super::{Serve, ServeError};
-
-lazy_static! {
-    static ref CONTAINER_GAUGE: GaugeVec = register_gauge_vec!(
-        "kube_tag_radar_container",
-        "Available update",
-        &[
-            "namespace",
-            "pod",
-            "container",
-            "image",
-            "image_id",
-            "latest_tag",
-            "resolved_image_id",
-            "latest_image_id",
-            "version",
-            "latest_version_req",
-            "latest_version_regex",
-            "latest_version"
-        ]
-    )
-    .unwrap();
-}
-
-pub struct ServeRegistry<'a> {
-    registry: &'a Registry,
-}
-
-impl IntoResponse for ServeRegistry<'_> {
-    fn into_response(self) -> Response {
-        let metric_families = self.registry.gather();
-        let encoder = TextEncoder::new();
-        let mut result = Vec::new();
-        let result = match encoder.encode(&metric_families, &mut result) {
-            Ok(()) => Ok((TypedHeader(ContentType::text_utf8()), result)),
-            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        };
-        result.into_response()
-    }
-}
-
-impl<'a> From<&'a Registry> for ServeRegistry<'a> {
-    fn from(registry: &'a Registry) -> Self {
-        ServeRegistry { registry }
-    }
-}
+use super::ServeError;
 
 fn ignored(settings: &Settings, image: &ImageWithContainer) -> bool {
     settings.ignore.iter().any(|i| i.matches(image))
@@ -98,36 +61,67 @@ fn update_available(image: &ImageWithContainer) -> bool {
     }
 }
 
-pub async fn metrics<'a>(
-    State(serve): State<Arc<Serve>>,
-) -> std::result::Result<ServeRegistry<'a>, ServeError> {
-    let images = serve.database.list_image_with_container().await?;
-    let registry = prometheus::default_registry();
-    CONTAINER_GAUGE.reset();
-    for image in images {
-        let value = if ignored(&serve.settings, &image) {
-            -1.
-        } else if update_available(&image) {
-            1.
-        } else {
-            0.
-        };
-        CONTAINER_GAUGE
-            .with_label_values(&[
-                &image.namespace,
-                &image.pod,
-                &image.container,
-                &image.image,
-                &image.image_id,
-                &image.latest_tag,
-                &image.resolved_image_id.unwrap_or(String::new()),
-                &image.latest_image_id.unwrap_or(String::new()),
-                &image.version.unwrap_or(String::new()),
-                &image.latest_version_req,
-                &image.latest_version_regex,
-                &image.latest_version.unwrap_or(String::new()),
-            ])
-            .set(value);
+pub struct ServeMetrics {
+    database: Database,
+    settings: Settings,
+    registry: Registry,
+    containers: Family<ImageWithContainer, Gauge>,
+}
+
+impl ServeMetrics {
+    pub fn new(database: Database, settings: Settings) -> Self {
+        let mut registry = Registry::default();
+        let containers = Family::<ImageWithContainer, Gauge>::default();
+        registry.register(
+            "kube_tag_radar_container",
+            "Available update",
+            containers.clone(),
+        );
+        ServeMetrics {
+            database,
+            settings,
+            registry,
+            containers,
+        }
     }
-    Ok(registry.into())
+
+    async fn metrics(&self) -> std::result::Result<Response, ServeError> {
+        let images = self.database.list_image_with_container().await?;
+        self.containers.clear();
+        for image in images {
+            let value = if ignored(&self.settings, &image) {
+                -1
+            } else if update_available(&image) {
+                1
+            } else {
+                0
+            };
+            self.containers.get_or_create(&image).set(value);
+        }
+        Ok(self.into_response())
+    }
+}
+
+impl<'a> IntoResponse for &'a ServeMetrics {
+    fn into_response(self) -> Response {
+        let mut buffer = String::new();
+        let result = match encode(&mut buffer, &self.registry) {
+            Ok(()) => Ok((TypedHeader(ContentType::text_utf8()), buffer)),
+            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        };
+        result.into_response()
+    }
+}
+
+impl<S> From<ServeMetrics> for Router<S> {
+    fn from(serve_metrics: ServeMetrics) -> Self {
+        Router::new()
+            .route(
+                "/",
+                get(async |State(serve_metrics): State<Arc<ServeMetrics>>| {
+                    serve_metrics.metrics().await
+                }),
+            )
+            .with_state(Arc::new(serve_metrics))
+    }
 }

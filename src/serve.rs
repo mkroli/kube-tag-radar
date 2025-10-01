@@ -17,7 +17,7 @@
 mod list;
 mod metrics;
 
-use crate::{database::Database, settings::Settings};
+use crate::{database::Database, serve::metrics::ServeMetrics, settings::Settings};
 use anyhow::Result;
 use axum::{
     Router,
@@ -61,10 +61,11 @@ impl Serve {
 
     pub async fn serve(self) -> Result<()> {
         let listener = TcpListener::bind(&self.settings.bind_address).await?;
+        let serve_metrics = ServeMetrics::new(self.database.clone(), self.settings.clone());
         let app = Router::new()
             .route("/", get(root))
             .route("/api/list", get(list::list))
-            .route("/metrics", get(metrics::metrics))
+            .nest("/metrics", serve_metrics.into())
             .with_state(Arc::new(self));
         axum::serve(listener, app).await?;
         Ok(())
