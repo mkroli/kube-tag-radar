@@ -1,6 +1,6 @@
 [package]
 name = "kube-tag-radar"
-version = "0.10.6"
+version = "0.10.7"
 edition = "2024"
 description = "Monitors Kubernetes PODs for available container image updates"
 license = "Apache-2.0"
