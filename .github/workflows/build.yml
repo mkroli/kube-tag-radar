@@ -119,7 +119,7 @@ jobs:
         run: |
           mv build/${{ github.event.repository.name }}_${{ matrix.suffix }} build/${{ github.event.repository.name }}
           chmod 0755 build/${{ github.event.repository.name }}
-          echo 'FROM scratch' > build/Dockerfile
+          echo 'FROM gcr.io/distroless/static-debian12' > build/Dockerfile
           echo 'ADD ${{ github.event.repository.name }} /${{ github.event.repository.name }}' >> build/Dockerfile
           echo 'ENTRYPOINT ["/${{ github.event.repository.name }}"]' >> build/Dockerfile
       - name: Docker meta
