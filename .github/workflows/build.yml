@@ -91,9 +91,6 @@ jobs:
           - arch: linux/aarch64
             suffix: aarch64-linux-musl
             short_suffix: aarch64-linux
-          - arch: linux/arm/v6
-            suffix: arm-linux-musleabihf
-            short_suffix: armv6-linux
           - arch: linux/arm/v7
             suffix: armv7-linux-musleabihf
             short_suffix: armv7-linux
@@ -167,7 +164,6 @@ jobs:
             -t ${{ steps.docker-meta.outputs.tags }} \
             ${{ steps.docker-meta.outputs.tags }}-x86_64-linux \
             ${{ steps.docker-meta.outputs.tags }}-aarch64-linux \
-            ${{ steps.docker-meta.outputs.tags }}-armv6-linux \
             ${{ steps.docker-meta.outputs.tags }}-armv7-linux
       - name: Create and push tag manifest (latest)
         run: |
@@ -175,7 +171,6 @@ jobs:
             -t ghcr.io/${{ github.repository }}:latest \
             ${{ steps.docker-meta.outputs.tags }}-x86_64-linux \
             ${{ steps.docker-meta.outputs.tags }}-aarch64-linux \
-            ${{ steps.docker-meta.outputs.tags }}-armv6-linux \
             ${{ steps.docker-meta.outputs.tags }}-armv7-linux
 
   ghcr_cleanup:
