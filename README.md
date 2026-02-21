@@ -14,7 +14,7 @@ kube-tag-radar
 ### Deploy to Kubernetes
 
 ```sh
-kubectl apply -k https://github.com/mkroli/kube-tag-radar.git/kubernetes?ref=0.10.7
+kubectl apply -k https://github.com/mkroli/kube-tag-radar.git/kubernetes?ref=0.10.8
 ```
 
 ### Deploy using Argo CD
@@ -33,7 +33,7 @@ spec:
   source:
     repoURL: https://github.com/mkroli/kube-tag-radar.git
     path: kubernetes
-    targetRevision: 0.10.7
+    targetRevision: 0.10.8
     kustomize:
       namespace: kube-tag-radar
       patches:
