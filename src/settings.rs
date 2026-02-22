@@ -22,6 +22,7 @@ use std::{
 use crate::database::ImageWithContainer;
 use anyhow::Result;
 use config::{Config, Environment, File, FileFormat};
+use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use tokio::time::Instant;
 
@@ -35,6 +36,16 @@ impl Ignore {
     pub fn matches(&self, container: &ImageWithContainer) -> bool {
         self.namespace == container.namespace && self.image == container.image
     }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct Override {
+    pub namespace: String,
+    pub pod: String,
+    pub container: Option<String>,
+    pub tag: Option<String>,
+    pub version_req: Option<String>,
+    pub version_regex: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -54,6 +65,8 @@ pub struct Settings {
     pub bind_address: SocketAddr,
     #[serde(default = "Vec::new")]
     pub ignore: Vec<Ignore>,
+    #[serde(default = "Vec::new")]
+    pub overrides: Vec<Override>,
 }
 
 fn default_database() -> String {
@@ -107,5 +120,17 @@ impl Settings {
             .build()?;
         let settings = config.try_deserialize()?;
         Ok(settings)
+    }
+
+    pub fn find_override(&self, namespace: &str, pod: &str, container: &str) -> Option<&Override> {
+        self.overrides.iter().find(|o| {
+            let pod_r = match Regex::new(&o.pod) {
+                Ok(r) => r,
+                Err(_) => return false,
+            };
+            o.namespace == namespace
+                && pod_r.is_match(pod)
+                && o.container.clone().is_none_or(|c| c == container)
+        })
     }
 }

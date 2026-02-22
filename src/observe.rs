@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-use crate::database::{Container, Database, PodInfo};
+use crate::{
+    database::{Container, Database, PodInfo},
+    settings::{Override, Settings},
+};
 use anyhow::Result;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -24,11 +27,34 @@ use kube::{
         watcher::{Config, Event},
     },
 };
-use std::pin::pin;
+use std::{collections::BTreeMap, pin::pin};
 use tokio_stream::StreamExt;
 
 pub struct Observe {
     database: Database,
+}
+
+fn pod_settings(
+    overrides: &Option<&Override>,
+    annotations: &BTreeMap<String, String>,
+    container: &str,
+) -> (String, String, String) {
+    let from_annotations = |t: &str| -> Option<String> {
+        annotations
+            .get(&format!("kube-tag-radar.mkroli.com/{container}.{t}"))
+            .or_else(|| annotations.get(&format!("kube-tag-radar.mkroli.com/{t}")))
+            .cloned()
+    };
+    let tag = from_annotations("tag")
+        .or(overrides.and_then(|o| o.tag.clone()))
+        .unwrap_or("latest".to_string());
+    let req = from_annotations("version_req")
+        .or(overrides.and_then(|o| o.version_req.clone()))
+        .unwrap_or("*".to_string());
+    let regex = from_annotations("version_regex")
+        .or(overrides.and_then(|o| o.version_regex.clone()))
+        .unwrap_or(".*".to_string());
+    (tag, req, regex)
 }
 
 impl PodInfo for Pod {
@@ -40,25 +66,23 @@ impl PodInfo for Pod {
         self.metadata.name.clone()
     }
 
-    fn containers(&self) -> Vec<Container> {
+    fn containers(&self, settings: &Settings) -> Vec<Container> {
         let mut containers = Vec::new();
 
-        let annotations = self.metadata.annotations.as_ref();
-        let annotation = |name: &str, default: &str| -> String {
-            annotations
-                .and_then(|a| a.get(&format!("kube-tag-radar.mkroli.com/{name}")))
-                .cloned()
-                .unwrap_or(default.to_string())
+        let annotations = match &self.metadata.annotations {
+            Some(a) => a,
+            None => &BTreeMap::new(),
         };
-        let latest_tag: String = annotation("tag", "latest");
-        let latest_version_req: String = annotation("version_req", "*");
-        let latest_version_regex: String = annotation("version_regex", ".*");
 
         if let (Some(namespace), Some(pod_name), Some(status)) =
             (PodInfo::namespace(self), PodInfo::name(self), &self.status)
             && let Some(container_statuses) = &status.container_statuses
         {
             for c in container_statuses {
+                let overrides = settings.find_override(&namespace, &pod_name, &c.name);
+                let (latest_tag, latest_version_req, latest_version_regex) =
+                    pod_settings(&overrides, annotations, &c.name);
+
                 let container = Container {
                     namespace: namespace.to_string(),
                     pod: pod_name.to_string(),

@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let settings = Settings::read(&cli.config_file)?;
     let update_delay = settings.update_delay;
-    let database = Database::new(&settings.database).await?;
+    let database = Database::new(settings.clone()).await?;
 
     let serve_task = {
         let serve = Serve::new(settings.clone(), database.clone());

@@ -20,8 +20,11 @@ use serde::Serialize;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use time::OffsetDateTime;
 
+use crate::settings::Settings;
+
 #[derive(Clone)]
 pub struct Database {
+    settings: Settings,
     pool: SqlitePool,
 }
 
@@ -70,17 +73,17 @@ pub struct ImageWithContainer {
 pub trait PodInfo {
     fn namespace(&self) -> Option<String>;
     fn name(&self) -> Option<String>;
-    fn containers(&self) -> Vec<Container>;
+    fn containers(&self, settings: &Settings) -> Vec<Container>;
 }
 
 impl Database {
-    pub async fn new(filename: &str) -> Result<Database> {
-        let db_url = format!("sqlite:{filename}?mode=rwc");
+    pub async fn new(settings: Settings) -> Result<Database> {
+        let db_url = format!("sqlite:{}?mode=rwc", &settings.database);
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect(&db_url)
             .await?;
-        let database = Database { pool };
+        let database = Database { settings, pool };
         database.init().await?;
         Ok(database)
     }
@@ -142,7 +145,7 @@ impl Database {
             .execute(&mut *tx)
             .await?;
 
-            for container in pod.containers() {
+            for container in pod.containers(&self.settings) {
                 sqlx::query!(
                     "INSERT INTO container (namespace, pod, container, image, image_id, latest_tag, latest_version_req, latest_version_regex) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                     container.namespace,
