@@ -16,6 +16,7 @@
 
 use anyhow::Result;
 use prometheus_client::encoding::EncodeLabelSet;
+use regex::Regex;
 use serde::Serialize;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use time::OffsetDateTime;
@@ -68,6 +69,22 @@ pub struct ImageWithContainer {
     pub latest_version_req: String,
     pub latest_version_regex: String,
     pub latest_version: Option<String>,
+}
+
+fn matched_version(r: &Regex, v: &Option<String>) -> Option<String> {
+    v.as_ref().map(|v| match r.captures(v) {
+        Some(c) if c.len() > 1 => c[1].to_string(),
+        _ => v.to_string(),
+    })
+}
+
+impl ImageWithContainer {
+    pub fn version_matches_latest_version(&self) -> Result<bool> {
+        let r = Regex::new(&self.latest_version_regex)?;
+        let version = matched_version(&r, &self.version);
+        let latest_version = matched_version(&r, &self.latest_version);
+        Ok(version.is_some() && version == latest_version)
+    }
 }
 
 pub trait PodInfo {

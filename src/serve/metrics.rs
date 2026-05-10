@@ -41,22 +41,18 @@ fn ignored(settings: &Settings, image: &ImageWithContainer) -> bool {
 }
 
 fn update_available(image: &ImageWithContainer) -> bool {
-    match *image {
+    match image {
         ImageWithContainer {
-            resolved_image_id: Some(ref resolved_image_id),
-            latest_image_id: Some(ref latest_image_id),
+            resolved_image_id: Some(resolved_image_id),
+            latest_image_id: Some(latest_image_id),
             ..
         } if resolved_image_id == latest_image_id => false,
         ImageWithContainer {
-            ref image_id,
-            latest_image_id: Some(ref latest_image_id),
+            image_id,
+            latest_image_id: Some(latest_image_id),
             ..
         } if image_id == latest_image_id => false,
-        ImageWithContainer {
-            version: Some(ref version),
-            latest_version: Some(ref latest_version),
-            ..
-        } if version == latest_version => false,
+        i @ ImageWithContainer { .. } if let Ok(true) = i.version_matches_latest_version() => false,
         _ => true,
     }
 }
