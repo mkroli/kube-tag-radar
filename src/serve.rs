@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-mod list;
 mod metrics;
 
 use crate::{database::Database, serve::metrics::ServeMetrics, settings::Settings};
@@ -22,7 +21,7 @@ use anyhow::Result;
 use axum::{
     Router,
     http::StatusCode,
-    response::{Html, IntoResponse},
+    response::{IntoResponse, Redirect},
     routing::get,
 };
 use std::sync::Arc;
@@ -63,15 +62,10 @@ impl Serve {
         let listener = TcpListener::bind(&self.settings.bind_address).await?;
         let serve_metrics = ServeMetrics::new(self.database.clone(), self.settings.clone());
         let app = Router::new()
-            .route("/", get(root))
-            .route("/api/list", get(list::list))
+            .route("/", get(|| async { Redirect::permanent("/metrics") }))
             .nest("/metrics", serve_metrics.into())
             .with_state(Arc::new(self));
         axum::serve(listener, app).await?;
         Ok(())
     }
-}
-
-async fn root() -> Html<&'static str> {
-    Html(include_str!("../assets/index.html"))
 }
