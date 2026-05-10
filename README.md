@@ -1,6 +1,6 @@
 # kube-tag-radar
 
-**kube-tag-radar** checks if the container images in your Kubernetes cluster are up to date. It can be run locally or deployed into Kubernetes. It provides an API, a web UI, and Prometheus metrics with built-in service discovery annotations.
+**kube-tag-radar** checks if the container images in your Kubernetes cluster are up to date. It can be run locally or deployed into Kubernetes. It provides Prometheus metrics with built-in service discovery annotations.
 
 ## Getting Started
 
