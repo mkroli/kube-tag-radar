@@ -27,7 +27,8 @@ use kube::{
         watcher::{Config, Event},
     },
 };
-use std::{collections::BTreeMap, pin::pin};
+use std::collections::{BTreeMap, HashMap};
+use std::pin::pin;
 use tokio_stream::StreamExt;
 
 pub struct Observe {
@@ -74,20 +75,30 @@ impl PodInfo for Pod {
             None => &BTreeMap::new(),
         };
 
-        if let (Some(namespace), Some(pod_name), Some(status)) =
-            (PodInfo::namespace(self), PodInfo::name(self), &self.status)
-            && let Some(container_statuses) = &status.container_statuses
+        if let (Some(namespace), Some(pod_name), Some(status), Some(spec)) = (
+            PodInfo::namespace(self),
+            PodInfo::name(self),
+            &self.status,
+            &self.spec,
+        ) && let Some(container_statuses) = &status.container_statuses
         {
+            let images: HashMap<String, String> = HashMap::from_iter(
+                spec.containers
+                    .iter()
+                    .filter_map(|c| c.image.clone().map(|i| (c.name.clone(), i))),
+            );
+
             for c in container_statuses {
                 let overrides = settings.find_override(&namespace, &pod_name, &c.name);
                 let (latest_tag, latest_version_req, latest_version_regex) =
                     pod_settings(&overrides, annotations, &c.name);
+                let image = images.get(&c.name).unwrap_or(&c.image).to_string();
 
                 let container = Container {
                     namespace: namespace.to_string(),
                     pod: pod_name.to_string(),
                     container: c.name.to_string(),
-                    image: c.image.to_string(),
+                    image,
                     image_id: c.image_id.to_string(),
                     latest_tag: latest_tag.to_string(),
                     latest_version_req: latest_version_req.to_string(),
