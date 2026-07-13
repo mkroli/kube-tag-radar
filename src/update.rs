@@ -39,7 +39,7 @@ impl Update {
     }
 
     async fn update_image(&self, image: &Image) -> Image {
-        info!("Updating {}.", &image.image);
+        info!("Updating {}.", image.image);
         let version = image.image_version().log_error().flatten();
         let latest_version = image.latest_image_version().await.log_error().flatten();
 

@@ -95,7 +95,7 @@ pub trait PodInfo {
 
 impl Database {
     pub async fn new(settings: Settings) -> Result<Database> {
-        let db_url = format!("sqlite:{}?mode=rwc", &settings.database);
+        let db_url = format!("sqlite:{}?mode=rwc", settings.database);
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect(&db_url)
