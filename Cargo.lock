@@ -1881,7 +1881,7 @@ dependencies = [
 
 [[package]]
 name = "kube-tag-radar"
-version = "0.12.5"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
